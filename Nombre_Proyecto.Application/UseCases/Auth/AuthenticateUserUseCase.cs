@@ -6,7 +6,7 @@ using Nombre_Proyecto.Application.Ports.Inbound;
 using Nombre_Proyecto.Application.Ports.Outbound;
 using Nombre_Proyecto.Core.Application.DTOs;
 
-namespace Nombre_Proyecto.Application.UseCases;
+namespace Nombre_Proyecto.Application.UseCases.Auth;
 
 /// <summary>
 /// Caso de uso: Autenticación de usuario

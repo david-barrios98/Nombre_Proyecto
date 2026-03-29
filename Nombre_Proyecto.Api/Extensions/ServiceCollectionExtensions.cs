@@ -1,7 +1,7 @@
 using FluentValidation;
 using Nombre_Proyecto.Application.Ports.Inbound;
 using Nombre_Proyecto.Application.Ports.Outbound;
-using Nombre_Proyecto.Application.UseCases;
+using Nombre_Proyecto.Application.UseCases.Auth;
 using Nombre_Proyecto.Application.Validators;
 using Nombre_Proyecto.Infrastructure.ExternalServices;
 using Nombre_Proyecto.Infrastructure.Persistence.Repositories;

@@ -2,7 +2,7 @@
 using System;
 
 
-namespace Nombre_Proyecto.Shared.Helper
+namespace Nombre_Proyecto.Infrastructure.Security
 {
     public class BlackListService
     {
