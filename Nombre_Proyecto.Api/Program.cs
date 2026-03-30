@@ -1,19 +1,18 @@
 using AspNetCoreRateLimit;
-using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using NLog.Extensions.Logging;
 using Nombre_Proyecto.Api.Extensions;
 using Nombre_Proyecto.Api.Filters;
-using Nombre_Proyecto.Shared.Helper;
-using Nombre_Proyecto.Core;
+using Nombre_Proyecto.Api.Middleware;
+using Nombre_Proyecto.Infrastructure.DependencyInjection;
+using Nombre_Proyecto.Infrastructure.Persistence.Adapters;
 using Nombre_Proyecto.Infrastructure.Seed;
+using Nombre_Proyecto.Shared.Helper;
 using System.Net;
 using System.Text;
-using Nombre_Proyecto.Infrastructure.Persistence.Adapters;
-using Nombre_Proyecto.Api.Middleware;
-using NLog.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 var configuration = builder.Configuration;
@@ -102,10 +101,8 @@ builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrateg
 builder.Services.AddInMemoryRateLimiting();
 
 // ============== HEXAGONAL ARCHITECTURE ==============
-builder.Services.AddSingleton<JwtService>();
-builder.Services.AddApplicationUseCases();
-builder.Services.AddApplicationPorts();
-builder.Services.AddApplicationValidators();
+builder.Services.AddApplicationServices();
+builder.Services.AddInfrastructure();
 
 // ============== CONTROLLERS ==============
 builder.Services.AddControllers(options =>

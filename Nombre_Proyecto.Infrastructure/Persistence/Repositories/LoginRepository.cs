@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Nombre_Proyecto.Application.DTOs.Auth;
+using Nombre_Proyecto.Application.Features.Auth.Commands.Login;
 using Nombre_Proyecto.Application.Ports.Outbound;
 using Nombre_Proyecto.Infrastructure.Constants;
 using Nombre_Proyecto.Infrastructure.Extensions;
@@ -17,7 +18,7 @@ namespace Nombre_Proyecto.Infrastructure.Persistence.Repositories
             _context = context;
         }
 
-        public async Task<LoginResponseDTO?> GetLoginUserAsync(LoginRequestDTO request)
+        public async Task<LoginResponseDTO?> GetLoginUserAsync(LoginCommand request)
         {
 
             var parameters = new[]
