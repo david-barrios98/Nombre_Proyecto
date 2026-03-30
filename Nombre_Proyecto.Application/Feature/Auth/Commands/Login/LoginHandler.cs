@@ -27,12 +27,27 @@ namespace Nombre_Proyecto.Application.Features.Auth.Commands.Login
         {
             var user = await _repository.GetLoginUserAsync(request);
 
+            // 1. Validamos existencia del usuario
             if (user == null)
-                return Result<LoginResponseDTO>.Failure(Messages.GENERAL[MessageKeys.USER_NOT_FOUND]);
+            {
+                // Usamos "NotFound" para que el Controller lance un 404
+                return Result<LoginResponseDTO>.Failure(
+                    Messages.GENERAL[MessageKeys.USER_NOT_FOUND],
+                    MessageKeys.USER_NOT_FOUND,
+                    "NotFound");
+            }
 
+            // 2. Validamos contraseña
             if (!_hashService.Verify(request.password, user.password))
-                return Result<LoginResponseDTO>.Failure(Messages.GENERAL[MessageKeys.USER_NOT_PASSWORD]);
+            {
+                // Usamos "Unauthorized" para que el Controller lance un 401
+                return Result<LoginResponseDTO>.Failure(
+                    Messages.GENERAL[MessageKeys.ERROR_LOGIN],
+                    MessageKeys.ERROR_LOGIN,
+                    "Unauthorized");
+            }
 
+            // 3. Generación de Token
             JwtUserDto jwtUser = new JwtUserDto
             {
                 user_id = user.user_id,
@@ -41,7 +56,9 @@ namespace Nombre_Proyecto.Application.Features.Auth.Commands.Login
 
             var token = _tokenService.GenerateAccessToken(jwtUser);
 
+            // Asignamos el token al DTO de respuesta
             user.access_token = token;
+
             return Result<LoginResponseDTO>.Success(user);
         }
     }
