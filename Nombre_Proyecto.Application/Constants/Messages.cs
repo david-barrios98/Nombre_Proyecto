@@ -39,6 +39,7 @@ namespace Nombre_Proyecto.Application.Constants
         public const string PROCESSING = "PROCESSING";
         public const string COMPLETED = "COMPLETED";
         public const string USER_NOT_FOUND = "USER_NOT_FOUND";
+        public const string USER_NOT_PASSWORD = "USER_NOT_PASSWORD";
 
     }
 
@@ -77,6 +78,7 @@ namespace Nombre_Proyecto.Application.Constants
             [MessageKeys.PROCESSING] = "Procesando solicitud...",
             [MessageKeys.COMPLETED] = "Proceso completado.",
             [MessageKeys.USER_NOT_FOUND] = "El usuario no existe o no está registrado.",
+            [MessageKeys.USER_NOT_PASSWORD] = "Credenciales invalidas",
 
         };
     }

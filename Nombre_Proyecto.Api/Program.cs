@@ -1,207 +1,48 @@
-using AspNetCoreRateLimit;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
 using NLog.Extensions.Logging;
 using Nombre_Proyecto.Api.Extensions;
-using Nombre_Proyecto.Api.Filters;
-using Nombre_Proyecto.Api.Middleware;
 using Nombre_Proyecto.Infrastructure.DependencyInjection;
 using Nombre_Proyecto.Infrastructure.Persistence.Adapters;
 using Nombre_Proyecto.Infrastructure.Seed;
-using Nombre_Proyecto.Shared.Helper;
-using System.Net;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ================= CONFIG =================
 var configuration = builder.Configuration;
-var environment = builder.Environment.EnvironmentName;
 
-// ============== CONFIGURACIÓN ==============
-builder.Configuration
-    .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-    .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: true)
-    .AddEnvironmentVariables();
+// ================= SERVICES =================
+builder.Services
+    .AddApplicationServices()
+    .AddInfrastructure()
+    .AddDatabase(configuration)
+    .AddJwtAuthentication(configuration)
+    .AddCorsPolicy(configuration)
+    .AddRateLimiting(configuration)
+    .AddSwaggerDocumentation()
+    .AddControllers();
 
-// ============== BASE DE DATOS ==============
-builder.Services.AddDbContext<Nombre_ProyectoDbContext>(options =>
-    options.UseSqlServer(
-        configuration.GetConnectionString("DefaultConnection"),
-        sqlOptions => sqlOptions.CommandTimeout(30).EnableRetryOnFailure(3)));
-
-// ============== JWT ==============
-var jwtSettings = configuration.GetSection("JwtSettings");
-ValidateJwtSettings(jwtSettings);
-
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.Events = new JwtBearerEvents
-    {
-        OnChallenge = async context =>
-        {
-            context.HandleResponse();
-            context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-
-            await context.Response.WriteAsJsonAsync(new
-            {
-                success = false,
-                message = "Unauthorized - Token missing or invalid",
-                timestamp = DateTime.UtcNow,
-                traceId = context.HttpContext.TraceIdentifier
-            });
-        }
-    };
-
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidAudience = jwtSettings["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SecretKey"])),
-        ClockSkew = TimeSpan.Zero
-    };
-});
-
-// ============== LOGGING ==============
+// ================= LOGGING =================
 builder.Logging.ClearProviders();
 builder.Logging.AddNLog("nlog.config");
 
-// ============== CORS ==============
-var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? new[] { "http://localhost:4202" };
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("_myAllowSpecificOrigins", policy =>
-    {
-        policy.WithOrigins(allowedOrigins)
-              .WithMethods("PUT", "DELETE", "GET", "POST")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
-    });
-});
-
-// ============== RATE LIMITING ==============
-builder.Services.AddMemoryCache();
-builder.Services.Configure<IpRateLimitOptions>(configuration.GetSection("IpRateLimiting"));
-builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
-builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
-builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
-builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrategy>();
-builder.Services.AddInMemoryRateLimiting();
-
-// ============== HEXAGONAL ARCHITECTURE ==============
-builder.Services.AddApplicationServices();
-builder.Services.AddInfrastructure();
-
-// ============== CONTROLLERS ==============
-builder.Services.AddControllers(options =>
-{
-    // Filtros globales si es necesario
-});
-builder.Services.AddEndpointsApiExplorer();
-
-// ============== SWAGGER ==============
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Nombre_Proyecto API",
-        Version = "v1",
-        Description = "API con Arquitectura Hexagonal - Autenticación JWT",
-        Contact = new OpenApiContact { Name = "Nombre_Proyecto Team", Email = "tech@Nombre_Proyecto.com" },
-        License = new OpenApiLicense { Name = "Proprietary" }
-    });
-
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        Description = "JWT Bearer token",
-        In = ParameterLocation.Header
-    });
-
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
-            },
-            new string[] { }
-        }
-    });
-
-    options.SchemaFilter<SwaggerSchemaFilter>();
-
-    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    if (File.Exists(xmlPath))
-        options.IncludeXmlComments(xmlPath);
-});
-
 var app = builder.Build();
 
-// ============== SEED DATABASE ==============
-var runSeed = configuration.GetValue<bool>("RunSeed");
-if (runSeed)
-{
-    using (var scope = app.Services.CreateScope())
-    {
-        var context = scope.ServiceProvider.GetRequiredService<Nombre_ProyectoDbContext>();
-        await DbInitializer.SeedAsync(context);
-    }
-}
+// ================= PIPELINE =================
+app.UseGlobalMiddleware();
 
-// ============== MIDDLEWARE ==============
 if (app.Environment.IsDevelopment())
 {
-    app.UseDeveloperExceptionPage();
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Nombre_Proyecto API v1");
-        options.RoutePrefix = "swagger";
-    });
-}
-else
-{
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
+    app.UseSwaggerDocumentation();
 }
 
 app.UseHttpsRedirection();
-app.UseCors("_myAllowSpecificOrigins");
-app.UseRouting();
+app.UseCors("_corsPolicy");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseIpRateLimiting();
-app.UseMiddleware<GlobalExceptionMiddleware>();
-
 app.MapControllers();
-app.Run();
 
-// ============== VALIDACIÓN ==============
-static void ValidateJwtSettings(IConfigurationSection jwtSettings)
-{
-    if (string.IsNullOrWhiteSpace(jwtSettings["SecretKey"]))
-        throw new InvalidOperationException("JwtSettings:SecretKey no configurado");
-    if (string.IsNullOrWhiteSpace(jwtSettings["Issuer"]))
-        throw new InvalidOperationException("JwtSettings:Issuer no configurado");
-    if (string.IsNullOrWhiteSpace(jwtSettings["Audience"]))
-        throw new InvalidOperationException("JwtSettings:Audience no configurado");
-}
+// ================= SEED =================
+await app.RunSeedIfNeeded(configuration);
+
+app.Run();

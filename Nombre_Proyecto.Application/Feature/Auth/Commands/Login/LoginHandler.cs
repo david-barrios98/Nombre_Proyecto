@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Nombre_Proyecto.Application.Common.Results;
+using Nombre_Proyecto.Application.Constants;
 using Nombre_Proyecto.Application.DTOs.Auth;
 using Nombre_Proyecto.Application.Ports.Outbound;
 using Nombre_Proyecto.Core.Application.DTOs;
@@ -27,10 +28,10 @@ namespace Nombre_Proyecto.Application.Features.Auth.Commands.Login
             var user = await _repository.GetLoginUserAsync(request);
 
             if (user == null)
-                return Result<LoginResponseDTO>.Failure("Usuario no encontrado");
+                return Result<LoginResponseDTO>.Failure(Messages.GENERAL[MessageKeys.USER_NOT_FOUND]);
 
             if (!_hashService.Verify(request.password, user.password))
-                return Result<LoginResponseDTO>.Failure("Credenciales inválidas");
+                return Result<LoginResponseDTO>.Failure(Messages.GENERAL[MessageKeys.USER_NOT_PASSWORD]);
 
             JwtUserDto jwtUser = new JwtUserDto
             {

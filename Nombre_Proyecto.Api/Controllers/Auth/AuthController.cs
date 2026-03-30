@@ -21,9 +21,9 @@ namespace Nombre_Proyecto.Api.Controllers.Auth
             var result = await _mediator.Send(command);
 
             if (!result.IsSuccess)
-                return BadRequest(result.Error);
+                return StatusCode(400, result.Error);
 
-            return Ok(result.Value);
+            return StatusCode(200, result.Value);
         }
     }
 }
